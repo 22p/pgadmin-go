@@ -1,0 +1,155 @@
+{{define "base"}}
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>{{.Title}} · GoPgAdmin</title>
+<link rel="stylesheet" href="/static/app.css">
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem('pggo-theme'); } catch (e) {}
+  if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
+</head>
+<body>
+{{template "icons" .}}
+
+<header class="topbar">
+  <button class="icon-btn sidebar-toggle" data-sidebar-toggle aria-label="切换侧栏">
+    <svg class="i"><use href="#i-menu"/></svg>
+  </button>
+
+  <a class="brand" href="/databases">
+    <span class="brand-mark">pg</span>
+    <span class="brand-name">GoPgAdmin</span>
+  </a>
+
+  <nav class="crumbs">
+    {{if .CurTable}}
+    <a href="/db/{{.CurDB}}/browse">{{.CurDB}}</a>
+    <span class="sep">/</span>
+    <span class="cur">{{.CurSchema}}.{{.CurTable}}</span>
+    {{else if .CurDB}}
+    <span class="cur">{{.CurDB}}</span>
+    {{end}}
+  </nav>
+
+  <div class="grow"></div>
+
+  <span class="chip conn" title="{{.MethodLabel}}">
+    <span class="dot"></span>
+    <span>{{.User}}@{{.Host}}:{{.Port}}</span>
+  </span>
+  <span class="chip soft hide-sm">{{.MethodLabel}}</span>
+  {{if .ReadOnly}}<span class="chip warn hide-sm" title="只读模式:数据库连接使用只读事务">只读</span>{{end}}
+
+  <button class="icon-btn" data-theme-toggle aria-label="切换主题">
+    <svg class="i i-moon"><use href="#i-moon"/></svg>
+    <svg class="i i-sun"><use href="#i-sun"/></svg>
+  </button>
+
+  {{if .AutoLogin}}
+  <span class="chip soft hide-sm" title="由环境变量提供凭据">自动登录</span>
+  {{else}}
+  <form method="post" action="/logout" class="logout-form">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button class="icon-btn" title="退出登录" aria-label="退出登录"><svg class="i"><use href="#i-logout"/></svg></button>
+  </form>
+  {{end}}
+</header>
+
+<div class="shell">
+  <aside class="sidebar" data-sidebar>
+    <div class="side-search">
+      <svg class="i"><use href="#i-search"/></svg>
+      <input id="object-filter" type="search" placeholder="搜索表 / 视图" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="side-block">
+      <div class="side-label">数据库</div>
+      <ul class="db-list">
+        {{range .DBs}}
+        <li>
+          <a href="/db/{{.}}/browse" class="{{if eq . $.CurDB}}active{{end}}">
+            <svg class="i"><use href="#i-db"/></svg><span>{{.}}</span>
+          </a>
+        </li>
+        {{end}}
+      </ul>
+    </div>
+
+    {{if .Schemas}}
+    <div class="side-block">
+      <div class="side-label">对象</div>
+      {{range .Schemas}}
+      <details class="schema" {{if eq .Name $.CurSchema}}open{{end}}>
+        <summary>
+          <svg class="i chev"><use href="#i-chevron"/></svg>
+          <span class="schema-name">{{.Name}}</span>
+          <span class="count">{{len .Tables}}</span>
+        </summary>
+        <ul class="obj-list">
+          {{range .Tables}}
+          <li data-object="{{.Name}}">
+            <a href="/db/{{$.CurDB}}/browse?schema={{.Schema}}&table={{.Name}}"
+               class="{{if and (eq .Schema $.CurSchema) (eq .Name $.CurTable)}}active{{end}}">
+              <svg class="i {{if eq .Kind "TABLE"}}kind-t{{else}}kind-v{{end}}"><use href="#i-{{if eq .Kind "TABLE"}}table{{else}}view{{end}}"/></svg>
+              <span>{{.Name}}</span>
+            </a>
+          </li>
+          {{end}}
+        </ul>
+      </details>
+      {{end}}
+    </div>
+
+    <div class="side-block">
+      <div class="side-label">工具</div>
+      <ul class="tool-list">
+        <li><a href="/db/{{.CurDB}}/sql"><svg class="i"><use href="#i-terminal"/></svg>SQL 编辑器</a></li>
+        <li><a href="/db/{{.CurDB}}/backup"><svg class="i"><use href="#i-download"/></svg>备份 / 恢复</a></li>
+        <li><a href="/db/{{.CurDB}}/ops"><svg class="i"><use href="#i-activity"/></svg>运维面板</a></li>
+        <li><a href="/db/{{.CurDB}}/design"><svg class="i"><use href="#i-plus"/></svg>建表 / 改表</a></li>
+        <li><a href="/db/{{.CurDB}}/er"><svg class="i"><use href="#i-diagram"/></svg>ER 图</a></li>
+      </ul>
+    </div>
+    {{end}}
+  </aside>
+  <div class="sidebar-backdrop" data-sidebar-toggle></div>
+
+  <main class="main">
+    {{if or .Flash .Err}}
+    <div class="alerts">
+      {{if .Flash}}<div class="alert ok">{{.Flash}}</div>{{end}}
+      {{if .Err}}<div class="alert err">{{.Err}}</div>{{end}}
+    </div>
+    {{end}}
+    {{template "content" .}}
+  </main>
+</div>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>
+{{end}}
+
+{{define "tabs"}}
+<div class="tabbar">
+  <div class="segmented">
+    <a href="/db/{{.CurDB}}/browse?schema={{.CurSchema}}&table={{.CurTable}}" class="{{if eq .Tab "browse"}}active{{end}}">数据</a>
+    <a href="/db/{{.CurDB}}/structure?schema={{.CurSchema}}&table={{.CurTable}}" class="{{if eq .Tab "structure"}}active{{end}}">结构</a>
+    <a href="/db/{{.CurDB}}/sql?schema={{.CurSchema}}&table={{.CurTable}}" class="{{if eq .Tab "sql"}}active{{end}}">SQL</a>
+  </div>
+  <div class="grow"></div>
+  {{if .CurTable}}
+  <a class="btn ghost sm" href="{{.ExportURL}}">
+    <svg class="i"><use href="#i-download"/></svg>导出 CSV
+  </a>
+  {{end}}
+</div>
+{{end}}

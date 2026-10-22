@@ -1,0 +1,128 @@
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>运维面板</h1>
+    <p class="sub">数据库 <span class="mono">{{.CurDB}}</span>{{with .Ops}}<span class="dot-sep">·</span>PostgreSQL {{.Version}}{{end}}</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn ghost sm" href="/db/{{.CurDB}}/ops">
+      <svg class="i"><use href="#i-activity"/></svg>刷新
+    </a>
+  </div>
+</div>
+
+{{with .Ops}}
+<div class="stat-grid">
+  <div class="stat"><span>数据库大小</span><b>{{.Size}}</b></div>
+  <div class="stat"><span>连接数 / 上限</span><b>{{.Active}} / {{.MaxConns}}</b><small>空闲 {{.Idle}}</small></div>
+  <div class="stat"><span>缓存命中率</span><b>{{.HitRatio}}{{if ne .HitRatio "-"}}%{{end}}</b></div>
+  <div class="stat"><span>其他会话</span><b>{{len .Activities}}</b><small>锁相关 {{len .Locks}}</small></div>
+</div>
+
+<section class="card table-card">
+  <div class="card-head"><h2>活动会话</h2><span class="sub">{{len .Activities}}</span></div>
+  <table class="grid">
+    <thead>
+      <tr>
+        <th>PID</th><th>用户</th><th>数据库</th><th>状态</th><th>等待</th>
+        <th>开始</th><th>耗时(s)</th><th>查询</th><th>客户端</th><th class="right">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Activities}}
+      <tr>
+        <td class="mono">{{.PID}}</td>
+        <td>{{.User}}</td>
+        <td class="mono">{{.DB}}</td>
+        <td><span class="tag {{if eq .State "active"}}tag-green{{end}}">{{.State}}</span></td>
+        <td class="mono dim">{{if .Wait}}{{.Wait}}{{else}}—{{end}}</td>
+        <td class="mono dim">{{if .Started}}{{.Started}}{{else}}—{{end}}</td>
+        <td class="mono">{{if .Elapsed}}{{.Elapsed}}{{else}}—{{end}}</td>
+        <td class="query-cell">{{.Query}}</td>
+        <td class="mono dim">{{.Client}}</td>
+        <td class="right nowrap">
+          {{if not $.ReadOnly}}
+          <form method="post" action="/db/{{$.CurDB}}/ops" class="inline">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="op" value="cancel">
+            <input type="hidden" name="pid" value="{{.PID}}">
+            <button class="btn ghost sm" title="取消当前查询">取消</button>
+          </form>
+          <form method="post" action="/db/{{$.CurDB}}/ops" class="inline" data-confirm="确定终止 PID {{.PID}} 的连接?">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="op" value="terminate">
+            <input type="hidden" name="pid" value="{{.PID}}">
+            <button class="btn danger sm">终止</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      {{if not .Activities}}
+      <tr><td colspan="10" class="empty-cell">没有其他会话</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+
+<section class="card table-card">
+  <div class="card-head"><h2>锁与阻塞</h2><span class="sub">{{len .Locks}}</span></div>
+  {{if .Locks}}
+  <table class="grid">
+    <thead><tr><th>PID</th><th>用户</th><th>对象</th><th>锁模式</th><th>状态</th></tr></thead>
+    <tbody>
+      {{range .Locks}}
+      <tr>
+        <td class="mono">{{.PID}}</td>
+        <td>{{.User}}</td>
+        <td class="mono">{{.Relation}}</td>
+        <td class="mono dim">{{.Mode}}</td>
+        <td>{{if .Granted}}<span class="tag">已获得</span>{{else}}<span class="tag tag-warn">等待中</span>{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="card-empty">没有等待中的锁</p>
+  {{end}}
+</section>
+
+<section class="card table-card">
+  <div class="card-head"><h2>表大小 Top 10</h2></div>
+  <table class="grid">
+    <thead><tr><th>表</th><th>总大小</th><th>行数(估算)</th><th>顺序扫描</th><th>索引扫描</th><th>最近 VACUUM</th><th class="right">维护</th></tr></thead>
+    <tbody>
+      {{range .TopTables}}
+      <tr>
+        <td class="mono strong">{{.Name}}</td>
+        <td class="mono">{{.Size}}</td>
+        <td class="mono">{{.Live}}</td>
+        <td class="mono dim">{{.SeqScan}}</td>
+        <td class="mono dim">{{.IdxScan}}</td>
+        <td class="mono dim">{{.LastVacuum}}</td>
+        <td class="right nowrap">
+          {{if not $.ReadOnly}}
+          {{$parts := splitTable .Name}}
+          <form method="post" action="/db/{{$.CurDB}}/ops" class="inline">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="op" value="analyze">
+            <input type="hidden" name="schema" value="{{index $parts 0}}">
+            <input type="hidden" name="table" value="{{index $parts 1}}">
+            <button class="btn ghost sm">ANALYZE</button>
+          </form>
+          <form method="post" action="/db/{{$.CurDB}}/ops" class="inline" data-confirm="对 {{.Name}} 执行 VACUUM (ANALYZE)?">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="op" value="vacuum">
+            <input type="hidden" name="schema" value="{{index $parts 0}}">
+            <input type="hidden" name="table" value="{{index $parts 1}}">
+            <button class="btn ghost sm">VACUUM</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+{{end}}

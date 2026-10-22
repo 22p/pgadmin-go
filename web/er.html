@@ -1,0 +1,52 @@
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>ER 图</h1>
+    <p class="sub">数据库 <span class="mono">{{.CurDB}}</span>{{with .ER}}<span class="dot-sep">·</span>schema <span class="mono">{{.Schema}}</span><span class="dot-sep">·</span>{{.TableCount}} 张表{{end}}</p>
+  </div>
+  <div class="head-actions">
+    {{with .ER}}
+    <form method="get" action="/db/{{$.CurDB}}/er" class="inline">
+      <select name="schema">
+        {{range .Schemas}}<option value="{{.}}" {{if eq . $.ER.Schema}}selected{{end}}>{{.}}</option>{{end}}
+      </select>
+      <button class="btn ghost sm">切换 schema</button>
+    </form>
+    {{end}}
+  </div>
+</div>
+
+{{with .ER}}
+{{if .Nodes}}
+<section class="card er-card">
+  <svg class="er-svg" viewBox="0 0 {{.Width}} {{.Height}}" width="{{.Width}}" height="{{.Height}}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="er-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0 0 L8 4 L0 8 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    {{range .Edges}}
+    <path class="er-edge" d="{{.Path}}" marker-end="url(#er-arrow)"/>
+    {{end}}
+    {{range .Nodes}}
+    {{$node := .}}
+    <g>
+      <rect class="er-node" x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="10"/>
+      <path class="er-head" d="M{{.X}} {{add .Y 10}} a10 10 0 0 1 10 -10 h{{sub .W 20}} a10 10 0 0 1 10 10 v{{sub 30 10}} h-{{.W}} z"/>
+      <text class="er-title" x="{{add .X 12}}" y="{{add .Y 20}}">{{.Name}}</text>
+      {{range .Columns}}
+      <text class="er-col{{if .PK}} er-pk{{end}}" x="{{add $node.X 12}}" y="{{.Y}}">{{if .PK}}PK  {{end}}{{.Name}}</text>
+      {{end}}
+    </g>
+    {{end}}
+  </svg>
+</section>
+{{else}}
+<div class="empty-state">
+  <div class="empty-icon"><svg class="i"><use href="#i-diagram"/></svg></div>
+  <h2>该 schema 没有表</h2>
+  <p>换一个 schema,或先创建表。</p>
+</div>
+{{end}}
+{{end}}
+{{end}}

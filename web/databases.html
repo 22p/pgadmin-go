@@ -1,0 +1,51 @@
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>数据库</h1>
+    <p class="sub">{{len .DBInfos}} 个可连接数据库 · 当前连接 <span class="mono">{{.CurDB}}</span></p>
+  </div>
+</div>
+
+{{if not .ReadOnly}}
+<section class="card create-card">
+  <form method="post" action="/databases/create" class="create-form">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <svg class="i"><use href="#i-plus"/></svg>
+    <input name="name" placeholder="新数据库名称" autocomplete="off" required>
+    <button class="btn primary sm">创建数据库</button>
+  </form>
+</section>
+{{end}}
+
+<section class="card table-card">
+  <table class="grid">
+    <thead>
+      <tr><th>数据库</th><th class="w-160">大小</th><th class="right">操作</th></tr>
+    </thead>
+    <tbody>
+      {{range .DBInfos}}
+      <tr>
+        <td>
+          <a class="db-cell" href="/db/{{.Name}}/browse">
+            <svg class="i"><use href="#i-db"/></svg><span class="mono">{{.Name}}</span>
+            {{if eq .Name $.CurDB}}<span class="tag">当前</span>{{end}}
+          </a>
+        </td>
+        <td class="mono dim">{{.Size}}</td>
+        <td class="right nowrap">
+          <a class="btn ghost sm" href="/db/{{.Name}}/browse">浏览</a>
+          {{if and (ne .Name $.CurDB) (not $.ReadOnly)}}
+          <form method="post" action="/databases/drop" class="inline"
+                data-confirm="确定删除数据库 {{.Name}}?此操作不可恢复。">
+            <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+            <input type="hidden" name="name" value="{{.Name}}">
+            <button class="btn danger sm">删除</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}

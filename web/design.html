@@ -1,0 +1,106 @@
+{{define "content"}}
+{{with .Design}}
+<div class="page-head">
+  <div>
+    <h1>{{if eq .Mode "create"}}新建表{{else}}修改表结构{{end}}</h1>
+    <p class="sub">
+      {{if eq .Mode "create"}}定义列、主键与默认值,提交后执行 CREATE TABLE
+      {{else}}<span class="mono">{{.Schema}}.{{.Table}}</span><span class="dot-sep">·</span>追加或删除列{{end}}
+    </p>
+  </div>
+  {{if eq .Mode "alter"}}
+  <div class="head-actions">
+    <a class="btn ghost sm" href="/db/{{$.CurDB}}/structure?schema={{.Schema}}&table={{.Table}}">查看结构</a>
+  </div>
+  {{end}}
+</div>
+
+{{if $.ReadOnly}}
+<div class="alert info">只读模式已开启,无法建表或改表。</div>
+{{end}}
+
+{{if eq .Mode "create"}}
+<section class="card form-card">
+  <form method="post" action="/db/{{$.CurDB}}/design/create">
+    <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+    <div class="row">
+      <label>Schema
+        <select name="schema">
+          {{range .Schemas}}<option value="{{.}}" {{if eq . $.Design.Schema}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </label>
+      <label>表名<input name="table" placeholder="orders" autocomplete="off" required></label>
+    </div>
+
+    <div class="design-head">
+      <span>列名</span><span>类型</span><span>默认值</span><span>可空</span><span>主键</span><span></span>
+    </div>
+    <div class="design-rows" data-column-rows>
+      {{range .Blank}}{{template "columnRow"}}{{end}}
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn ghost sm" data-add-column><svg class="i"><use href="#i-plus"/></svg>添加列</button>
+      <div class="grow"></div>
+      <button class="btn primary" type="submit" {{if $.ReadOnly}}disabled{{end}}>创建表</button>
+    </div>
+    <p class="note">类型支持带精度与数组,例如 <span class="mono">numeric(10,2)</span>、<span class="mono">timestamptz</span>、<span class="mono">text[]</span>;默认值按 SQL 表达式填写,如 <span class="mono">now()</span>、<span class="mono">0</span>。</p>
+  </form>
+</section>
+{{else}}
+<section class="card form-card">
+  <div class="card-head"><h2>现有列</h2><span class="sub">{{len .Columns}}</span></div>
+  <form method="post" action="/db/{{$.CurDB}}/design/alter">
+    <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="schema" value="{{.Schema}}">
+    <input type="hidden" name="table" value="{{.Table}}">
+    <div class="table-wrap existing-cols">
+      <table class="grid">
+        <thead><tr><th>列</th><th>类型</th><th>默认值</th><th>可空</th><th>主键</th><th class="right">删除</th></tr></thead>
+        <tbody>
+          {{range .Columns}}
+          <tr>
+            <td class="mono strong">{{.Name}}</td>
+            <td class="mono dim">{{.Type}}</td>
+            <td class="mono">{{if .Default}}{{.Default}}{{else}}<span class="null">—</span>{{end}}</td>
+            <td>{{if .NotNull}}NO{{else}}YES{{end}}</td>
+            <td>{{if .PK}}<span class="key">PK</span>{{end}}</td>
+            <td class="right">
+              {{if not $.ReadOnly}}
+              <label class="check"><input type="checkbox" name="d.col" value="{{.Name}}"> 删除</label>
+              {{end}}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card-head"><h2>追加列</h2><span class="sub">留空则不添加</span></div>
+    <div class="design-head">
+      <span>列名</span><span>类型</span><span>默认值</span><span>可空</span><span>主键</span><span></span>
+    </div>
+    <div class="design-rows" data-column-rows>
+      {{range .Blank}}{{template "columnRow"}}{{end}}
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn ghost sm" data-add-column><svg class="i"><use href="#i-plus"/></svg>添加列</button>
+      <div class="grow"></div>
+      <button class="btn primary" type="submit" {{if $.ReadOnly}}disabled{{end}}>保存变更</button>
+    </div>
+    <p class="note">删除列会连带删除该列数据,操作不可恢复;追加带主键的列时请同时设置默认值,避免已有行违反约束。</p>
+  </form>
+</section>
+{{end}}
+{{end}}
+{{end}}
+
+{{define "columnRow"}}
+<div class="design-row">
+  <input name="c.name" placeholder="列名" autocomplete="off">
+  <input name="c.type" placeholder="text / numeric(10,2)" autocomplete="off">
+  <input name="c.def" placeholder="可选" autocomplete="off">
+  <select name="c.notnull"><option value="">可空</option><option value="1">NOT NULL</option></select>
+  <select name="c.pk"><option value="">—</option><option value="1">主键</option></select>
+  <button type="button" class="icon-btn" data-remove-column aria-label="删除该行"><svg class="i"><use href="#i-close"/></svg></button>
+</div>
+{{end}}

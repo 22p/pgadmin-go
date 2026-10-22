@@ -1,0 +1,76 @@
+{{define "content"}}
+{{if not .CurTable}}
+<div class="empty-state">
+  <div class="empty-icon"><svg class="i"><use href="#i-table"/></svg></div>
+  <h2>没有选择表</h2>
+  <p>从左侧对象树中选择一个表来查看结构。</p>
+</div>
+{{else}}
+<div class="page-head">
+  <div>
+    <h1>{{.CurTable}}</h1>
+    <p class="sub">
+      <span class="mono">{{.CurSchema}}</span>
+      <span class="dot-sep">·</span>{{len .Columns}} 列
+      {{if .TableSize}}<span class="dot-sep">·</span>总大小 {{.TableSize}}{{end}}
+      <span class="dot-sep">·</span>估算 {{.EstRows}} 行
+    </p>
+  </div>
+</div>
+
+{{template "tabs" .}}
+
+<section class="card table-card">
+  <div class="card-head"><h2>列</h2></div>
+  <table class="grid">
+    <thead><tr><th class="rownum">#</th><th>名称</th><th>类型</th><th>可空</th><th>默认值</th><th>主键</th></tr></thead>
+    <tbody>
+      {{range $i, $c := .Columns}}
+      <tr>
+        <td class="rownum">{{add1 $i 0}}</td>
+        <td class="mono strong">{{$c.Name}}</td>
+        <td class="mono dim">{{$c.Type}}</td>
+        <td>{{if $c.Nullable}}<span class="tag">YES</span>{{else}}<span class="tag muted-tag">NO</span>{{end}}</td>
+        <td class="mono">{{if $c.Default}}{{$c.Default}}{{else}}<span class="null">—</span>{{end}}</td>
+        <td>{{if $c.PK}}<span class="key">PK</span>{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+
+<div class="grid-2">
+  <section class="card table-card">
+    <div class="card-head"><h2>索引</h2><span class="sub">{{len .Indexes}}</span></div>
+    {{if .Indexes}}
+    <table class="grid">
+      <thead><tr><th>名称</th><th>定义</th></tr></thead>
+      <tbody>
+        {{range .Indexes}}
+        <tr><td class="mono strong">{{.Name}}</td><td class="mono dim wrap">{{.Def}}</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="card-empty">没有索引</p>
+    {{end}}
+  </section>
+
+  <section class="card table-card">
+    <div class="card-head"><h2>外键</h2><span class="sub">{{len .FKs}}</span></div>
+    {{if .FKs}}
+    <table class="grid">
+      <thead><tr><th>名称</th><th>定义</th></tr></thead>
+      <tbody>
+        {{range .FKs}}
+        <tr><td class="mono strong">{{.Name}}</td><td class="mono dim wrap">{{.Def}}</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="card-empty">没有外键</p>
+    {{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

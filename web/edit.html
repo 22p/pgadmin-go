@@ -1,0 +1,58 @@
+{{define "content"}}
+{{with .Edit}}
+<div class="page-head">
+  <div>
+    <h1>{{if eq .Mode "new"}}新增行{{else}}编辑行{{end}}</h1>
+    <p class="sub"><span class="mono">{{.Schema}}.{{.Table}}</span><span class="dot-sep">·</span>{{if eq .Mode "new"}}留空使用默认值{{else}}主键不可修改{{end}}</p>
+  </div>
+</div>
+
+<section class="card form-card">
+  <form method="post" action="/db/{{$.CurDB}}/row/save">
+    <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="schema" value="{{.Schema}}">
+    <input type="hidden" name="table" value="{{.Table}}">
+    <input type="hidden" name="mode" value="{{.Mode}}">
+    <input type="hidden" name="key" value="{{.Key}}">
+
+    <div class="field-grid">
+      {{range .Fields}}
+      <label class="field">
+        <span class="field-name">
+          <span class="mono">{{.Name}}</span>
+          <span class="coltype">{{.Type}}</span>
+          {{if .IsPK}}<span class="key">PK</span>{{end}}
+          {{if .Null}}<span class="null">当前 NULL</span>{{end}}
+        </span>
+        {{if .IsPK}}
+        <input value="{{.Value}}" disabled>
+        {{else}}
+        <input name="v.{{.Name}}" value="{{.Value}}" autocomplete="off" placeholder="{{if .Nullable}}留空写入 NULL{{end}}">
+        {{end}}
+      </label>
+      {{end}}
+    </div>
+
+    <p class="note">新增行时留空的字段不会被写入,由数据库默认值处理;编辑行时可空字段留空会写入 NULL。</p>
+
+    <div class="form-actions">
+      <button class="btn primary" type="submit">保存</button>
+      <a class="btn ghost" href="/db/{{$.CurDB}}/browse?schema={{.Schema}}&table={{.Table}}">取消</a>
+      <div class="grow"></div>
+      {{if .CanDelete}}
+      <button class="btn danger" type="submit" form="row-delete" formnovalidate>删除此行</button>
+      {{end}}
+    </div>
+  </form>
+
+  {{if .CanDelete}}
+  <form id="row-delete" method="post" action="/db/{{$.CurDB}}/row/delete" data-confirm="确定删除这一行?此操作不可恢复。">
+    <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="schema" value="{{.Schema}}">
+    <input type="hidden" name="table" value="{{.Table}}">
+    <input type="hidden" name="key" value="{{.Key}}">
+  </form>
+  {{end}}
+</section>
+{{end}}
+{{end}}

@@ -1,0 +1,119 @@
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>SQL 编辑器</h1>
+    <p class="sub">数据库 <span class="mono">{{.CurDB}}</span><span class="dot-sep">·</span>支持多条语句,以分号分隔</p>
+  </div>
+</div>
+
+{{if .ReadOnly}}<div class="alert info">只读模式已开启:连接使用只读事务,写操作会被数据库拒绝。</div>{{end}}
+
+<section class="card editor-card">
+  <form method="post" action="/db/{{.CurDB}}/sql">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="editor-bar">
+      <svg class="i"><use href="#i-terminal"/></svg>
+      <span class="meta">query.sql</span>
+      <div class="grow"></div>
+      <span class="kbd-hint">Ctrl / ⌘ + Enter</span>
+      <button class="btn primary sm" type="submit"><svg class="i"><use href="#i-play"/></svg>执行</button>
+    </div>
+    <textarea id="editor" name="sql" class="editor" spellcheck="false"
+      placeholder="SELECT * FROM public.users LIMIT 50;">{{.SQLText}}</textarea>
+  </form>
+</section>
+
+{{if .Duration}}
+<div class="result-meta">
+  <span class="meta">耗时 {{.Duration}}</span>
+  {{if .Tag}}<span class="dot-sep">·</span><span class="meta">命令 {{.Tag}}</span>{{end}}
+  {{with .Sets}}<span class="dot-sep">·</span><span class="meta">{{len .}} 个结果集</span>{{end}}
+</div>
+{{end}}
+
+{{range $i, $set := .Sets}}
+<section class="card table-card result-card">
+  <div class="card-head">
+    <h2>结果 {{add1 $i 0}}</h2><span class="sub">{{len $set.Rows}} 行</span>
+    <div class="grow"></div>
+    {{if $.LastResultID}}
+    <a class="btn ghost sm" href="/db/{{$.CurDB}}/sql/export?id={{$.LastResultID}}&set={{$i}}&format=csv">
+      <svg class="i"><use href="#i-download"/></svg>CSV
+    </a>
+    <a class="btn ghost sm" href="/db/{{$.CurDB}}/sql/export?id={{$.LastResultID}}&set={{$i}}&format=json">JSON</a>
+    {{end}}
+  </div>
+  <div class="table-wrap">
+    <table class="grid data">
+      <thead><tr>{{range $set.Columns}}<th>{{.}}</th>{{end}}</tr></thead>
+      <tbody>
+        {{range $set.Rows}}
+        <tr>{{range .}}<td{{if .Title}} title="{{.Title}}"{{end}}>{{if .Null}}<span class="null">NULL</span>{{else}}{{.Text}}{{end}}</td>{{end}}</tr>
+        {{end}}
+        {{if not $set.Rows}}<tr><td colspan="{{len $set.Columns}}" class="empty-cell">没有数据</td></tr>{{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{end}}
+
+{{if and .Tag (not .Err) (not .Sets)}}
+<div class="alert ok">执行成功 · {{.Tag}}</div>
+{{end}}
+
+<div class="grid-2 sql-side">
+  <section class="card side-card">
+    <div class="card-head"><h2>收藏</h2><span class="sub">{{len .Favorites}}</span></div>
+    <form class="fav-form" method="post" action="/db/{{.CurDB}}/sql/favorite" data-copy-sql>
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="hidden" name="action" value="add">
+      <input type="hidden" name="sql" value="{{.SQLText}}">
+      <input name="name" placeholder="命名当前查询" autocomplete="off" required>
+      <button class="btn ghost sm" type="submit">收藏</button>
+    </form>
+    {{if .Favorites}}
+    <ul class="fav-list">
+      {{range .Favorites}}
+      <li>
+        <a href="?sql={{.SQL | urlquery}}" title="{{.SQL}}">{{.Name}}</a>
+        <form method="post" action="/db/{{$.CurDB}}/sql/favorite" class="inline">
+          <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+          <input type="hidden" name="action" value="del">
+          <input type="hidden" name="name" value="{{.Name}}">
+          <button class="icon-btn" title="取消收藏"><svg class="i"><use href="#i-close"/></svg></button>
+        </form>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <p class="card-empty">还没有收藏的查询</p>
+    {{end}}
+  </section>
+
+  <section class="card side-card">
+    <div class="card-head">
+      <h2>历史</h2><span class="sub">{{len .History}}</span>
+      <div class="grow"></div>
+      {{if .History}}
+      <form method="post" action="/db/{{.CurDB}}/sql/favorite" class="inline">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="clear">
+        <button class="btn ghost sm">清空</button>
+      </form>
+      {{end}}
+    </div>
+    {{if .History}}
+    <ul class="hist-list">
+      {{range .History}}
+      <li class="{{if .Err}}hist-err{{end}}">
+        <a class="hist-sql" href="?sql={{.SQL | urlquery}}" title="{{.SQL}}">{{.SQL}}</a>
+        <span class="hist-meta">{{.At.Format "15:04:05"}} · {{.Duration}}{{if .Tag}} · {{.Tag}}{{end}}{{if .Err}} · 失败{{end}}</span>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <p class="card-empty">执行过的语句会记录在这里(仅当前会话)</p>
+    {{end}}
+  </section>
+</div>
+{{end}}

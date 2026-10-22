@@ -1,0 +1,78 @@
+{{define "content"}}
+<div class="page-head">
+  <div>
+    <h1>备份与恢复</h1>
+    <p class="sub">数据库 <span class="mono">{{.CurDB}}</span><span class="dot-sep">·</span>基于 pg_dump / pg_restore / psql</p>
+  </div>
+</div>
+
+{{with .Backup}}
+<div class="stat-grid">
+  <div class="stat"><span>pg_dump</span><b class="mono">{{if .PgDump}}可用{{else}}缺失{{end}}</b></div>
+  <div class="stat"><span>pg_restore</span><b class="mono">{{if .PgRestore}}可用{{else}}缺失{{end}}</b></div>
+  <div class="stat"><span>psql</span><b class="mono">{{if .Psql}}可用{{else}}缺失{{end}}</b></div>
+</div>
+
+{{if .Reason}}<div class="alert err">{{.Reason}}</div>{{end}}
+
+<div class="grid-2">
+  <section class="card form-card">
+    <div class="card-head"><h2>导出</h2><span class="sub">下载到本地</span></div>
+    <form method="post" action="/db/{{$.CurDB}}/backup/dump" class="stack">
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+      <label>格式
+        <select name="format">
+          <option value="plain">SQL 文本(.sql,可读可改)</option>
+          <option value="custom">自定义归档(.dump,配合 pg_restore)</option>
+          <option value="tar">tar 归档(.tar)</option>
+        </select>
+      </label>
+      <div class="row">
+        <label>Schema
+          <select name="schema">
+            {{range .Schemas}}<option value="{{.}}">{{.}}</option>{{end}}
+          </select>
+        </label>
+        <label>表(可选,留空导出整个库)<input name="table" list="pggo-tables" autocomplete="off" placeholder="如 users"></label>
+      </div>
+      <datalist id="pggo-tables">
+        {{range .Tables}}<option value="{{.Name}}">{{.Schema}}.{{.Name}}</option>{{end}}
+      </datalist>
+      <label class="check"><input type="checkbox" name="schema_only" value="1"> 仅导出结构</label>
+      <div class="form-actions">
+        <button class="btn primary" type="submit" {{if not .PgDump}}disabled{{end}}>
+          <svg class="i"><use href="#i-download"/></svg>下载备份
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card form-card">
+    <div class="card-head"><h2>恢复</h2><span class="sub">上限 64MB</span></div>
+    {{if $.ReadOnly}}
+    <p class="card-empty">只读模式下不可恢复数据。</p>
+    {{else}}
+    <form method="post" action="/db/{{$.CurDB}}/backup/restore" enctype="multipart/form-data" class="stack"
+          data-confirm="恢复会修改现有数据库,确定继续?">
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+      <label>备份文件<input type="file" name="file" required accept=".sql,.dump,.backup,.tar"></label>
+      <label>格式
+        <select name="format">
+          <option value="auto">按扩展名自动识别</option>
+          <option value="plain">SQL 文本(psql 执行)</option>
+          <option value="custom">自定义归档(pg_restore)</option>
+          <option value="tar">tar 归档(pg_restore)</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="clean" value="1"> 先删除同名对象(--clean --if-exists)</label>
+      <div class="form-actions">
+        <button class="btn danger" type="submit">
+          <svg class="i"><use href="#i-upload"/></svg>上传并恢复
+        </button>
+      </div>
+    </form>
+    {{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

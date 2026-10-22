@@ -1,0 +1,178 @@
+{{define "content"}}
+{{if not .CurTable}}
+<div class="empty-state">
+  <div class="empty-icon"><svg class="i"><use href="#i-table"/></svg></div>
+  <h2>选择一个表开始</h2>
+  <p>从左侧对象树中选择表或视图,也可以直接打开 <a href="/db/{{.CurDB}}/sql">SQL 编辑器</a>。</p>
+</div>
+{{else}}
+<div class="page-head">
+  <div>
+    <h1>{{.CurTable}}</h1>
+    <p class="sub">
+      <span class="mono">{{.CurSchema}}</span>
+      <span class="dot-sep">·</span>{{.Total}} 行
+      {{if .Filters}}<span class="dot-sep">·</span><span class="tag">已筛选</span>{{end}}
+      {{if .TableSize}}<span class="dot-sep">·</span>{{.TableSize}}{{end}}
+    </p>
+  </div>
+  <div class="head-actions">
+    {{if .CanEdit}}
+    <a class="btn primary sm" href="/db/{{.CurDB}}/row?schema={{.CurSchema}}&table={{.CurTable}}&mode=new">
+      <svg class="i"><use href="#i-plus"/></svg>新增行
+    </a>
+    {{end}}
+    {{if and .IsTable (not .ReadOnly)}}
+    <form method="post" action="/db/{{.CurDB}}/table" class="inline"
+          data-confirm="确定执行该操作?此操作不可恢复。">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="hidden" name="schema" value="{{.CurSchema}}">
+      <input type="hidden" name="table" value="{{.CurTable}}">
+      <button class="btn ghost sm" name="op" value="truncate">清空表</button>
+      <button class="btn danger sm" name="op" value="drop">删除表</button>
+    </form>
+    {{end}}
+  </div>
+</div>
+
+{{template "tabs" .}}
+
+<div class="table-toolbar">
+  <details class="panel">
+    <summary class="btn ghost sm"><svg class="i"><use href="#i-filter"/></svg>筛选{{if .Filters}} · {{len .Filters}}{{end}}</summary>
+    <form class="filter-form" method="get" action="/db/{{.CurDB}}/browse">
+      <input type="hidden" name="schema" value="{{.CurSchema}}">
+      <input type="hidden" name="table" value="{{.CurTable}}">
+      <input type="hidden" name="size" value="{{.Size}}">
+      {{range .HiddenList}}<input type="hidden" name="hide" value="{{.}}">{{end}}
+      <div class="filter-rows" data-filter-rows>
+        {{range $f := .Filters}}
+        <div class="filter-row">
+          <select name="f.col">
+            {{range $c := $.AllColumns}}
+            <option value="{{$c.Name}}" {{if eq $c.Name $f.Column}}selected{{end}}>{{$c.Name}}</option>
+            {{end}}
+          </select>
+          <select name="f.op">
+            {{range $o := $.FilterOptions}}
+            <option value="{{$o.Value}}" {{if eq $o.Value $f.Op}}selected{{end}}>{{$o.Label}}</option>
+            {{end}}
+          </select>
+          <input name="f.val" value="{{$f.Value}}" placeholder="值" autocomplete="off">
+          <button type="button" class="icon-btn" data-remove-filter aria-label="移除条件"><svg class="i"><use href="#i-close"/></svg></button>
+        </div>
+        {{end}}
+      </div>
+      <div class="filter-actions">
+        <button type="button" class="btn ghost sm" data-add-filter><svg class="i"><use href="#i-plus"/></svg>条件</button>
+        <button class="btn primary sm">应用筛选</button>
+        <a class="btn ghost sm" href="/db/{{.CurDB}}/browse?schema={{.CurSchema}}&table={{.CurTable}}&size={{.Size}}">清除</a>
+      </div>
+      <template data-filter-template>
+        <div class="filter-row">
+          <select name="f.col">
+            {{range $c := .AllColumns}}<option value="{{$c.Name}}">{{$c.Name}}</option>{{end}}
+          </select>
+          <select name="f.op">
+            {{range $o := .FilterOptions}}<option value="{{$o.Value}}">{{$o.Label}}</option>{{end}}
+          </select>
+          <input name="f.val" placeholder="值" autocomplete="off">
+          <button type="button" class="icon-btn" data-remove-filter aria-label="移除条件"><svg class="i"><use href="#i-close"/></svg></button>
+        </div>
+      </template>
+    </form>
+  </details>
+
+  <details class="panel cols-panel">
+    <summary class="btn ghost sm"><svg class="i"><use href="#i-columns"/></svg>列 {{len .Columns}}/{{len .AllColumns}}</summary>
+    <form class="cols-form" method="get" action="/db/{{.CurDB}}/browse">
+      <input type="hidden" name="schema" value="{{.CurSchema}}">
+      <input type="hidden" name="table" value="{{.CurTable}}">
+      <input type="hidden" name="size" value="{{.Size}}">
+      <input type="hidden" name="sort" value="{{.Sort}}">
+      <input type="hidden" name="dir" value="{{.Dir}}">
+      {{range .Filters}}
+      <input type="hidden" name="f.col" value="{{.Column}}">
+      <input type="hidden" name="f.op" value="{{.Op}}">
+      <input type="hidden" name="f.val" value="{{.Value}}">
+      {{end}}
+      <div class="cols-list">
+        {{range $c := .AllColumns}}
+        <label class="check"><input type="checkbox" name="hide" value="{{$c.Name}}" {{if index $.HiddenCols $c.Name}}checked{{end}}>{{$c.Name}}</label>
+        {{end}}
+      </div>
+      <button class="btn primary sm">应用</button>
+    </form>
+  </details>
+
+  <div class="grow"></div>
+  <span class="meta">{{.FirstRow}}–{{.LastRow}} / {{.Total}}</span>
+  <span class="meta">每页</span>
+  <div class="sizes">
+    {{range .Sizes}}
+    <a class="size {{if eq . $.Size}}active{{end}}" href="{{$.SizeURL .}}">{{.}}</a>
+    {{end}}
+  </div>
+</div>
+
+{{if .FilterChips}}
+<div class="filter-chips">
+  {{range .FilterChips}}
+  <span class="chip">{{.Label}}<a class="chip-x" href="{{.RemoveURL}}" aria-label="移除条件">×</a></span>
+  {{end}}
+</div>
+{{end}}
+
+<section class="card table-card">
+  <table class="grid data">
+    <thead>
+      <tr>
+        <th class="rownum">#</th>
+        {{range $c := .Columns}}
+        <th>
+          <a class="sort" href="{{$.SortURL $c.Name}}">
+            <span class="col">{{$c.Name}}{{if eq $.Sort $c.Name}}<span class="arrow">{{if eq $.Dir "asc"}}↑{{else}}↓{{end}}</span>{{end}}</span>
+            <span class="coltype">{{$c.Type}}</span>
+          </a>
+        </th>
+        {{end}}
+        {{if .CanEdit}}<th class="row-actions">操作</th>{{end}}
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Rows}}
+        {{range $i, $row := .Rows}}
+        <tr>
+          <td class="rownum">{{add1 $i $.Offset}}</td>
+          {{range $row}}<td{{if .Title}} title="{{.Title}}"{{end}}>{{if .Null}}<span class="null">NULL</span>{{else}}{{.Text}}{{end}}</td>{{end}}
+          {{if $.CanEdit}}
+          <td class="row-actions">
+            <a class="btn ghost sm" href="/db/{{$.CurDB}}/row?schema={{$.CurSchema}}&table={{$.CurTable}}&mode=edit&key={{index $.RowKeys $i}}">编辑</a>
+            <form method="post" action="/db/{{$.CurDB}}/row/delete" class="inline"
+                  data-confirm="确定删除这一行?此操作不可恢复。">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="schema" value="{{$.CurSchema}}">
+              <input type="hidden" name="table" value="{{$.CurTable}}">
+              <input type="hidden" name="key" value="{{index $.RowKeys $i}}">
+              <button class="btn danger sm">删除</button>
+            </form>
+          </td>
+          {{end}}
+        </tr>
+        {{end}}
+      {{else}}
+      <tr><td class="rownum"></td><td colspan="{{len .Columns}}" class="empty-cell">没有数据</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>
+
+<div class="pager">
+  <a class="btn ghost sm {{if not .HasPrev}}disabled{{end}}"
+     {{if .HasPrev}}href="{{.PageURL .PagePrev}}"{{else}}aria-disabled="true"{{end}}>上一页</a>
+  <span class="meta">第 {{.Page}} 页</span>
+  <a class="btn ghost sm {{if not .HasNext}}disabled{{end}}"
+     {{if .HasNext}}href="{{.PageURL .PageNext}}"{{else}}aria-disabled="true"{{end}}>下一页</a>
+</div>
+{{end}}
+{{end}}

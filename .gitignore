@@ -1,0 +1,6 @@
+/bin/
+/pggo
+/pggo.new
+*.log
+.DS_Store
+.env
